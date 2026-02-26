@@ -18,7 +18,6 @@
             height: auto; 
             filter: drop-shadow(0 15px 25px rgba(0,0,0,0.05)); 
             border-radius: 16px;
-            /* 把 SVG 的背景改为透明，这样才能透出背后打坐的人体图 */
             background: transparent !important;
             padding: 1rem;
         }
@@ -32,7 +31,7 @@
             font-family: ui-sans-serif, system-ui, sans-serif !important;
         }
         
-        /* 针对后端输出的灰色（未点亮）数字，稍微加深对比度 */
+        /* 针对后端输出的灰色（未点亮）数字，加深对比度 */
         .chart-container svg text[fill="grey"],
         .chart-container svg text[fill="lightgrey"] {
             fill: #4b5563 !important;
@@ -50,12 +49,34 @@
             stroke: #1f2937 !important;
             stroke-width: 0.008 !important;
         }
+
+        /* =========================================================
+           【终极立体通道渲染】：由 JS 双重克隆生成的 CSS 控制
+           ========================================================= */
+        /* 1. 宽厚的深灰色底层框线 */
+        .chart-container svg .channel-outline {
+            stroke: #374151 !important; /* 沉稳深灰边框 */
+            stroke-width: 0.038 !important; /* 加粗，露出边缘 */
+            stroke-linecap: round !important;
+            stroke-linejoin: round !important;
+        }
         
-        /* 【全新优化】：保留底层通道并加粗，形成所有通道的灰色描边基底 */
-        .chart-container svg path[stroke="lightgrey"],
-        .chart-container svg line[stroke="lightgrey"] {
-            stroke: #e2e8f0 !important; /* 柔和的石板灰底轨 */
-            stroke-width: 0.035 !important; /* 关键：将其加粗！当上层 0.02 宽的彩色线覆盖时，这层会在边缘露出，形成完美描边 */
+        /* 2. 纯白色的内衬层，覆盖在深灰线上 */
+        .chart-container svg .channel-inner {
+            stroke: #ffffff !important; 
+            stroke-width: 0.018 !important; /* 收细，露出下方边框 */
+            stroke-linecap: round !important;
+            stroke-linejoin: round !important;
+        }
+
+        /* 3. 红/黑的激活通道层，与白线同宽，完美落入深灰边框内部 */
+        .chart-container svg path[stroke="#000000"],
+        .chart-container svg line[stroke="#000000"],
+        .chart-container svg path[stroke="#ff4081"],
+        .chart-container svg line[stroke="#ff4081"] {
+            stroke-width: 0.018 !important; 
+            stroke-linecap: round !important;
+            stroke-linejoin: round !important;
         }
 
         @keyframes pulse-soft { 0%, 100% { opacity: 1; } 50% { opacity: 0.7; } }
@@ -193,7 +214,7 @@
                              width: 100%;
                              left: 50%;
                              top: 40%;
-                             opacity: 1;
+                             opacity: 1; /* 100% 不透明度 */
                              pointer-events: none;
                              mix-blend-mode: multiply;
                          ">
@@ -318,7 +339,14 @@ Vue.createApp({
                 if (resData.success) {
                     let d = resData.data;
 
-                    // 【修复说明】：删除了利用正则将 C 替换为 L 的代码，让 SVG 的曲线指令正常生效！
+                    // 【核心魔法破解】：克隆拦截！
+                    // 把后端原来单薄的 lightgrey 线条变成两根：一根做深灰边框，一根做纯白内衬
+                    if (d.chartImageSVG) {
+                        d.chartImageSVG = d.chartImageSVG.replace(
+                            /(<(?:path|line)[^>]+)(stroke="lightgrey")([^>]*>)/gi,
+                            '$1class="channel-outline" $3\n$1class="channel-inner" $3'
+                        );
+                    }
 
                     const typeMap = {
                         "Manifestor": "显示者 (Manifestor)",

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>专业全息人类图 (含红黑行星数据栏)</title>
+    <title>专业全息人类图 (稳定放大版)</title>
     <!-- 引入 Tailwind CSS 进行快速美化 -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- 引入 Vue.js -->
@@ -18,28 +18,29 @@
             height: auto; 
             filter: drop-shadow(0 15px 25px rgba(0,0,0,0.05)); 
             border-radius: 16px;
+            /* 把 SVG 的背景改为透明，这样才能透出背后打坐的人体图 */
             background: transparent !important;
             padding: 1rem;
         }
         
-        /* 强制注入正确的缩放比例和居中对齐 */
+        /* 【核心视觉优化】：大幅度增大数字字号，提升可读性！ */
         .chart-container svg text {
-            font-size: 0.38px !important;
-            font-weight: 800 !important;
+            font-size: 0.55px !important; /* 从 0.38px 放大到 0.55px */
+            font-weight: 900 !important;
             text-anchor: middle !important;
             dominant-baseline: central !important;
             font-family: ui-sans-serif, system-ui, sans-serif !important;
         }
         
-        /* 针对后端输出的灰色（未点亮）数字，加深对比度 */
+        /* 针对后端输出的灰色（未点亮）数字，稍微加深对比度 */
         .chart-container svg text[fill="grey"],
         .chart-container svg text[fill="lightgrey"] {
             fill: #4b5563 !important;
         }
         
-        /* 数字微调，居中对齐 */
+        /* 配合放大的数字微调 Y 轴居中对齐 */
         .chart-container svg .door text {
-            transform: translateY(0.04px); 
+            transform: translateY(0.06px); 
         }
 
         /* 为九大能量中心加上高级感描边 */
@@ -49,34 +50,11 @@
             stroke: #1f2937 !important;
             stroke-width: 0.008 !important;
         }
-
-        /* =========================================================
-           【终极立体通道渲染】：由 JS DOMParser 双重克隆生成的 CSS 控制
-           ========================================================= */
-        /* 1. 宽厚的深灰色底层框线 */
-        .chart-container svg .channel-outline {
-            stroke: #374151 !important; /* 沉稳深灰边框 */
-            stroke-width: 0.038 !important; /* 加粗，露出边缘 */
-            stroke-linecap: round !important;
-            stroke-linejoin: round !important;
-        }
         
-        /* 2. 纯白色的内衬层，覆盖在深灰线上 */
-        .chart-container svg .channel-inner {
-            stroke: #ffffff !important; 
-            stroke-width: 0.018 !important; /* 收细，露出下方边框 */
-            stroke-linecap: round !important;
-            stroke-linejoin: round !important;
-        }
-
-        /* 3. 红/黑的激活通道层，与白线同宽，完美落入深灰边框内部 */
-        .chart-container svg path[stroke="#000000"],
-        .chart-container svg line[stroke="#000000"],
-        .chart-container svg path[stroke="#ff4081"],
-        .chart-container svg line[stroke="#ff4081"] {
-            stroke-width: 0.018 !important; 
-            stroke-linecap: round !important;
-            stroke-linejoin: round !important;
+        /* 保留清爽效果：将未点亮的灰色通道强制改为纯白色隐形 */
+        .chart-container svg path[stroke="lightgrey"],
+        .chart-container svg line[stroke="lightgrey"] {
+            stroke: #ffffff !important;
         }
 
         @keyframes pulse-soft { 0%, 100% { opacity: 1; } 50% { opacity: 0.7; } }
@@ -207,6 +185,7 @@
                 <!-- 左右行星栏 + 中间能量图 -->
                 <div class="flex flex-row justify-center items-stretch gap-2 md:gap-6 w-full mt-8 relative">
                     
+                    <!-- 【参数完美对齐的人体底图】 -->
                     <img src="https://raw.githubusercontent.com/Mr-shuchan/hd-csharp-api/refs/heads/main/download.jpg" 
                          alt="人类图脉轮底图" 
                          class="absolute transform -translate-x-1/2 -translate-y-1/2 h-auto object-contain z-0" 
@@ -214,7 +193,7 @@
                              width: 100%;
                              left: 50%;
                              top: 40%;
-                             opacity: 1; /* 100% 不透明度 */
+                             opacity: 1; /* 不透明度 100% */
                              pointer-events: none;
                              mix-blend-mode: multiply;
                          ">
@@ -339,42 +318,7 @@ Vue.createApp({
                 if (resData.success) {
                     let d = resData.data;
 
-                    // =========================================================
-                    // 【绝对安全的修复方案】：采用 DOMParser 进行精准控制
-                    // 彻底抛弃危险的正则表达式，使用浏览器原生 API 操作 SVG 节点结构
-                    // =========================================================
-                    if (d.chartImageSVG) {
-                        try {
-                            const parser = new DOMParser();
-                            const svgDoc = parser.parseFromString(d.chartImageSVG, 'image/svg+xml');
-                            
-                            // 选取所有带有 stroke="lightgrey" 的未激活底层通道线
-                            const greyElements = svgDoc.querySelectorAll('path[stroke="lightgrey"], line[stroke="lightgrey"]');
-                            
-                            greyElements.forEach(el => {
-                                // 将节点深拷贝一份作为内层
-                                const clone = el.cloneNode(true);
-                                
-                                // 处理原始节点，将其转变为“深灰色的外框描边”
-                                let originalClass = el.getAttribute('class') || '';
-                                el.setAttribute('class', (originalClass + ' channel-outline').trim());
-                                el.removeAttribute('stroke'); // 把控制权交给 CSS
-                                
-                                // 处理克隆出的节点，将其转变为“纯白色的内衬”
-                                let cloneClass = clone.getAttribute('class') || '';
-                                clone.setAttribute('class', (cloneClass + ' channel-inner').trim());
-                                clone.removeAttribute('stroke'); // 把控制权交给 CSS
-                                
-                                // 将内衬安全地插入到外框紧挨着的后面
-                                el.parentNode.insertBefore(clone, el.nextSibling);
-                            });
-                            
-                            // 重新将修改后安全的 DOM 树序列化为字符串
-                            d.chartImageSVG = new XMLSerializer().serializeToString(svgDoc.documentElement);
-                        } catch (domErr) {
-                            console.error("解析修复 SVG 失败，降级显示:", domErr);
-                        }
-                    }
+                    // 【完全安全回滚】：彻底去除了使用 JS 操作修改 SVG 的逻辑，原汁原味呈现 C# 输出
 
                     const typeMap = {
                         "Manifestor": "显示者 (Manifestor)",

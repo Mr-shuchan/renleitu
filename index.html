@@ -51,7 +51,7 @@
         }
 
         /* =========================================================
-           【终极立体通道渲染】：由 JS 双重克隆生成的 CSS 控制
+           【终极立体通道渲染】：由 JS DOMParser 双重克隆生成的 CSS 控制
            ========================================================= */
         /* 1. 宽厚的深灰色底层框线 */
         .chart-container svg .channel-outline {
@@ -339,13 +339,41 @@ Vue.createApp({
                 if (resData.success) {
                     let d = resData.data;
 
-                    // 【核心魔法破解】：克隆拦截！
-                    // 把后端原来单薄的 lightgrey 线条变成两根：一根做深灰边框，一根做纯白内衬
+                    // =========================================================
+                    // 【绝对安全的修复方案】：采用 DOMParser 进行精准控制
+                    // 彻底抛弃危险的正则表达式，使用浏览器原生 API 操作 SVG 节点结构
+                    // =========================================================
                     if (d.chartImageSVG) {
-                        d.chartImageSVG = d.chartImageSVG.replace(
-                            /(<(?:path|line)[^>]+)(stroke="lightgrey")([^>]*>)/gi,
-                            '$1class="channel-outline" $3\n$1class="channel-inner" $3'
-                        );
+                        try {
+                            const parser = new DOMParser();
+                            const svgDoc = parser.parseFromString(d.chartImageSVG, 'image/svg+xml');
+                            
+                            // 选取所有带有 stroke="lightgrey" 的未激活底层通道线
+                            const greyElements = svgDoc.querySelectorAll('path[stroke="lightgrey"], line[stroke="lightgrey"]');
+                            
+                            greyElements.forEach(el => {
+                                // 将节点深拷贝一份作为内层
+                                const clone = el.cloneNode(true);
+                                
+                                // 处理原始节点，将其转变为“深灰色的外框描边”
+                                let originalClass = el.getAttribute('class') || '';
+                                el.setAttribute('class', (originalClass + ' channel-outline').trim());
+                                el.removeAttribute('stroke'); // 把控制权交给 CSS
+                                
+                                // 处理克隆出的节点，将其转变为“纯白色的内衬”
+                                let cloneClass = clone.getAttribute('class') || '';
+                                clone.setAttribute('class', (cloneClass + ' channel-inner').trim());
+                                clone.removeAttribute('stroke'); // 把控制权交给 CSS
+                                
+                                // 将内衬安全地插入到外框紧挨着的后面
+                                el.parentNode.insertBefore(clone, el.nextSibling);
+                            });
+                            
+                            // 重新将修改后安全的 DOM 树序列化为字符串
+                            d.chartImageSVG = new XMLSerializer().serializeToString(svgDoc.documentElement);
+                        } catch (domErr) {
+                            console.error("解析修复 SVG 失败，降级显示:", domErr);
+                        }
                     }
 
                     const typeMap = {

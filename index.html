@@ -18,12 +18,10 @@
             height: auto; 
             filter: drop-shadow(0 15px 25px rgba(0,0,0,0.05)); 
             border-radius: 16px;
-            /* 把 SVG 的背景改为透明，这样才能透出背后打坐的人体图 */
             background: transparent !important;
             padding: 1rem;
         }
         
-        /* 强制注入正确的缩放比例和居中对齐 */
         .chart-container svg text {
             font-size: 0.38px !important;
             font-weight: 800 !important;
@@ -32,18 +30,15 @@
             font-family: ui-sans-serif, system-ui, sans-serif !important;
         }
         
-        /* 针对后端输出的灰色（未点亮）数字，稍微加深对比度 */
         .chart-container svg text[fill="grey"],
         .chart-container svg text[fill="lightgrey"] {
             fill: #4b5563 !important;
         }
         
-        /* 数字微调，居中对齐 */
         .chart-container svg .door text {
             transform: translateY(0.04px); 
         }
 
-        /* 为九大能量中心加上高级感描边 */
         .chart-container svg polygon.center,
         .chart-container svg rect.center,
         .chart-container svg .center {
@@ -60,7 +55,6 @@
 <div id="app" class="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-12 gap-8">
     
     <!-- 左侧表单区 -->
-    <!-- 【手机端显示修复】：将 sticky top-8 修改为 lg:sticky lg:top-8，使其仅在电脑宽屏时粘性固定，手机端自然流式滚动 -->
     <div class="lg:col-span-4 glass-panel p-6 h-fit lg:sticky lg:top-8 z-20">
         <div class="flex items-center gap-3 mb-2">
             <span class="text-3xl">🌌</span>
@@ -180,7 +174,6 @@
                 <!-- 左右行星栏 + 中间能量图 -->
                 <div class="flex flex-row justify-center items-stretch gap-2 md:gap-6 w-full mt-8 relative">
                     
-                    <!-- 【已修复：基于指定参数硬编码渲染底图】 -->
                     <img src="https://raw.githubusercontent.com/Mr-shuchan/hd-csharp-api/refs/heads/main/download.jpg" 
                          alt="人类图脉轮底图" 
                          class="absolute transform -translate-x-1/2 -translate-y-1/2 h-auto object-contain z-0" 
@@ -188,7 +181,7 @@
                              width: 100%;
                              left: 50%;
                              top: 40%;
-                             opacity: 0.4;
+                             opacity: 1.0;
                              pointer-events: none;
                              mix-blend-mode: multiply;
                          ">
@@ -312,6 +305,12 @@ Vue.createApp({
                 
                 if (resData.success) {
                     let d = resData.data;
+
+                    // 【核心魔法破解】：拦截后端 SVG 并斩断所有曲线
+                    // 利用正则将形如 "C x1 y1 x2 y2 x y" 的贝塞尔曲线指令替换为直截了当的 "L x y" (直线指令)
+                    if (d.chartImageSVG) {
+                        d.chartImageSVG = d.chartImageSVG.replace(/C\s*[0-9\.-]+[\s,]+[0-9\.-]+[\s,]+[0-9\.-]+[\s,]+[0-9\.-]+[\s,]+([0-9\.-]+)[\s,]+([0-9\.-]+)/gi, 'L $1 $2');
+                    }
 
                     const typeMap = {
                         "Manifestor": "显示者 (Manifestor)",

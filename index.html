@@ -51,10 +51,11 @@
             stroke-width: 0.008 !important;
         }
         
-        /* 【新增修复】：将未点亮（原本为浅灰色）的通道强制改为纯白色，使其隐形、画面更清爽 */
+        /* 【全新优化】：保留底层通道并加粗，形成所有通道的灰色描边基底 */
         .chart-container svg path[stroke="lightgrey"],
         .chart-container svg line[stroke="lightgrey"] {
-            stroke: #ffffff !important;
+            stroke: #e2e8f0 !important; /* 柔和的石板灰底轨 */
+            stroke-width: 0.035 !important; /* 关键：将其加粗！当上层 0.02 宽的彩色线覆盖时，这层会在边缘露出，形成完美描边 */
         }
 
         @keyframes pulse-soft { 0%, 100% { opacity: 1; } 50% { opacity: 0.7; } }
@@ -317,11 +318,7 @@ Vue.createApp({
                 if (resData.success) {
                     let d = resData.data;
 
-                    // 【核心魔法破解】：拦截后端 SVG 并斩断所有曲线
-                    // 利用正则将形如 "C x1 y1 x2 y2 x y" 的贝塞尔曲线指令替换为直截了当的 "L x y" (直线指令)
-                    if (d.chartImageSVG) {
-                        d.chartImageSVG = d.chartImageSVG.replace(/C\s*[0-9\.-]+[\s,]+[0-9\.-]+[\s,]+[0-9\.-]+[\s,]+[0-9\.-]+[\s,]+([0-9\.-]+)[\s,]+([0-9\.-]+)/gi, 'L $1 $2');
-                    }
+                    // 【修复说明】：删除了利用正则将 C 替换为 L 的代码，让 SVG 的曲线指令正常生效！
 
                     const typeMap = {
                         "Manifestor": "显示者 (Manifestor)",

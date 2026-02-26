@@ -18,10 +18,12 @@
             height: auto; 
             filter: drop-shadow(0 15px 25px rgba(0,0,0,0.05)); 
             border-radius: 16px;
+            /* 把 SVG 的背景改为透明，这样才能透出背后打坐的人体图 */
             background: transparent !important;
             padding: 1rem;
         }
         
+        /* 强制注入正确的缩放比例和居中对齐 */
         .chart-container svg text {
             font-size: 0.38px !important;
             font-weight: 800 !important;
@@ -30,20 +32,29 @@
             font-family: ui-sans-serif, system-ui, sans-serif !important;
         }
         
+        /* 针对后端输出的灰色（未点亮）数字，稍微加深对比度 */
         .chart-container svg text[fill="grey"],
         .chart-container svg text[fill="lightgrey"] {
             fill: #4b5563 !important;
         }
         
+        /* 数字微调，居中对齐 */
         .chart-container svg .door text {
             transform: translateY(0.04px); 
         }
 
+        /* 为九大能量中心加上高级感描边 */
         .chart-container svg polygon.center,
         .chart-container svg rect.center,
         .chart-container svg .center {
             stroke: #1f2937 !important;
             stroke-width: 0.008 !important;
+        }
+        
+        /* 【新增修复】：将未点亮（原本为浅灰色）的通道强制改为纯白色，使其隐形、画面更清爽 */
+        .chart-container svg path[stroke="lightgrey"],
+        .chart-container svg line[stroke="lightgrey"] {
+            stroke: #ffffff !important;
         }
 
         @keyframes pulse-soft { 0%, 100% { opacity: 1; } 50% { opacity: 0.7; } }
@@ -181,7 +192,7 @@
                              width: 100%;
                              left: 50%;
                              top: 40%;
-                             opacity: 0.3;
+                             opacity: 1;
                              pointer-events: none;
                              mix-blend-mode: multiply;
                          ">
@@ -408,4 +419,3 @@ Vue.createApp({
 </script>
 </body>
 </html>
-

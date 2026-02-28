@@ -18,32 +18,27 @@
             height: auto; 
             filter: drop-shadow(0 15px 25px rgba(0,0,0,0.05)); 
             border-radius: 16px;
-            /* 把 SVG 的背景改为透明，这样才能透出背后打坐的人体图 */
             background: transparent !important;
             padding: 1rem;
         }
         
-        /* 【核心视觉优化】：大幅度增大数字字号，提升可读性！ */
         .chart-container svg text {
-            font-size: 0.55px !important; /* 从 0.38px 放大到 0.55px */
+            font-size: 0.55px !important;
             font-weight: 900 !important;
             text-anchor: middle !important;
             dominant-baseline: central !important;
             font-family: ui-sans-serif, system-ui, sans-serif !important;
         }
         
-        /* 针对后端输出的灰色（未点亮）数字，稍微加深对比度 */
         .chart-container svg text[fill="grey"],
         .chart-container svg text[fill="lightgrey"] {
             fill: #4b5563 !important;
         }
         
-        /* 配合放大的数字微调 Y 轴居中对齐 */
         .chart-container svg .door text {
             transform: translateY(0.06px); 
         }
 
-        /* 为九大能量中心加上高级感描边 */
         .chart-container svg polygon.center,
         .chart-container svg rect.center,
         .chart-container svg .center {
@@ -51,14 +46,35 @@
             stroke-width: 0.008 !important;
         }
         
-        /* 保留清爽效果：将未点亮的灰色通道强制改为纯白色隐形 */
-        .chart-container svg path[stroke="lightgrey"],
-        .chart-container svg line[stroke="lightgrey"] {
-            stroke: #ffffff !important;
+        /* 终极通道渲染 CSS */
+        .chart-container svg .channel-outline {
+            stroke: #6b7280 !important; 
+            stroke-width: var(--channel-outer, 0.038) !important; 
+            stroke-linecap: butt !important; 
+            stroke-linejoin: round !important;
+        }
+        
+        .chart-container svg .channel-inner,
+        .chart-container svg path[stroke="#000000"],
+        .chart-container svg line[stroke="#000000"],
+        .chart-container svg path[stroke="#ff4081"],
+        .chart-container svg line[stroke="#ff4081"] {
+            stroke-width: var(--channel-inner, 0.022) !important; 
+            stroke-linecap: butt !important; 
+            stroke-linejoin: round !important;
         }
 
         @keyframes pulse-soft { 0%, 100% { opacity: 1; } 50% { opacity: 0.7; } }
         .animate-pulse-soft { animation: pulse-soft 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+        
+        /* 自定义下拉箭头样式 */
+        select {
+            appearance: none;
+            background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+            background-repeat: no-repeat;
+            background-position: right 1rem center;
+            background-size: 1em;
+        }
     </style>
 </head>
 <body class="min-h-screen p-4 md:p-8 flex justify-center items-start text-slate-800">
@@ -86,7 +102,7 @@
                 </div>
                 <div>
                     <label class="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
-                        出生时间 <span class="font-normal text-slate-400">(北京时间)</span>
+                        出生时间 <span class="font-normal text-slate-400">(当地记录时间)</span>
                     </label>
                     <input v-model="form.time" type="time" required class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none transition-all">
                 </div>
@@ -95,12 +111,32 @@
             <div class="grid grid-cols-2 gap-4">
                 <div>
                     <label class="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">出生省份</label>
-                    <input v-model="form.province" type="text" placeholder="例如：广东" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none transition-all">
+                    <select v-model="form.province" required @change="handleProvinceChange" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none transition-all text-slate-700">
+                        <option value="" disabled selected>选择省份</option>
+                        <option v-for="(cities, prov) in locationData" :key="prov" :value="prov">{{ prov }}</option>
+                    </select>
                 </div>
                 <div>
                     <label class="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">出生城市</label>
-                    <input v-model="form.city" type="text" placeholder="例如：深圳" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none transition-all">
+                    <select v-model="form.city" required :disabled="!form.province" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none transition-all text-slate-700 disabled:opacity-50 disabled:cursor-not-allowed">
+                        <option value="" disabled selected>选择城市</option>
+                        <option v-for="city in availableCities" :key="city" :value="city">{{ city }}</option>
+                    </select>
                 </div>
+            </div>
+
+            <!-- 【新增】：动态地理时区选择器 -->
+            <div>
+                <label class="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider flex justify-between items-center">
+                    <span>地理时区 (UTC)</span>
+                    <span class="text-[10px] font-normal text-slate-400 normal-case">*根据省份自动推断，可手动修改</span>
+                </label>
+                <select v-model.number="form.timezoneOffset" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none transition-all text-slate-700">
+                    <option value="9">UTC+9 (长白时区：黑龙江东部等)</option>
+                    <option value="8">UTC+8 (中原时区：北京/东部/中部等大部)</option>
+                    <option value="7">UTC+7 (陇蜀时区：川/渝/滇/黔/陕/甘/宁/桂/琼)</option>
+                    <option value="6">UTC+6 (新藏时区：新疆/西藏/青海)</option>
+                </select>
             </div>
             
             <button type="submit" :disabled="loading" class="w-full mt-2 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white py-3.5 rounded-xl font-bold shadow-lg shadow-indigo-600/30 transition-all disabled:bg-slate-400 disabled:shadow-none flex justify-center items-center gap-2 text-lg">
@@ -132,6 +168,7 @@
             <div class="glass-panel p-6 mb-6">
                 <div class="flex justify-between items-center mb-6 pb-4 border-b border-slate-100">
                     <h2 class="text-2xl font-black text-indigo-900">{{ result.name }} <span class="text-base font-medium text-slate-500 ml-2">的人类图解析报告</span></h2>
+                    <!-- 渲染我们精确选出的地理标识 -->
                     <span v-if="result.location" class="text-sm font-medium text-slate-500 bg-slate-100 px-3 py-1 rounded-full">📍 {{ result.location }}</span>
                 </div>
                 
@@ -176,16 +213,44 @@
             <div class="glass-panel p-4 md:p-6 relative overflow-hidden">
                 <!-- 顶部工具栏 -->
                 <div class="absolute top-4 right-4 flex gap-2 z-30">
+                    <button @click="showConfig = !showConfig" class="bg-indigo-600 text-white text-xs px-3 py-2 rounded-lg hover:bg-indigo-700 transition shadow-sm flex items-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path></svg>
+                        调整通道
+                    </button>
                     <button @click="copySVG" class="bg-slate-800 text-white text-xs px-3 py-2 rounded-lg hover:bg-slate-700 transition shadow-sm flex items-center gap-2">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
                         复制 SVG
                     </button>
                 </div>
 
+                <!-- 浮动的通道宽度校准器 -->
+                <div v-if="showConfig" class="absolute top-16 right-4 bg-white p-5 rounded-xl shadow-2xl border border-slate-200 z-50 w-80 text-sm">
+                    <div class="flex justify-between items-center mb-4 border-b pb-2">
+                        <h4 class="font-bold text-slate-800">🛠️ 通道宽度校准器</h4>
+                        <button @click="showConfig = false" class="text-slate-400 hover:text-red-500">✖</button>
+                    </div>
+                    <div class="mb-5">
+                        <div class="flex justify-between items-center mb-1">
+                            <label class="text-slate-600 font-medium">通道主体宽度 (内衬/彩线)</label>
+                            <input type="number" v-model.number="chartConfig.inner" step="0.001" min="0.005" max="0.08" class="w-20 p-1 border rounded text-right text-xs bg-slate-50 focus:ring-1 focus:ring-indigo-500 outline-none">
+                        </div>
+                        <input type="range" min="0.005" max="0.08" step="0.001" v-model.number="chartConfig.inner" class="w-full accent-indigo-600">
+                    </div>
+                    <div class="mb-5">
+                        <div class="flex justify-between items-center mb-1">
+                            <label class="text-slate-600 font-medium">描边宽度 (底层灰框)</label>
+                            <input type="number" v-model.number="chartConfig.outer" step="0.001" min="0.010" max="0.10" class="w-20 p-1 border rounded text-right text-xs bg-slate-50 focus:ring-1 focus:ring-indigo-500 outline-none">
+                        </div>
+                        <input type="range" min="0.010" max="0.10" step="0.001" v-model.number="chartConfig.outer" class="w-full accent-indigo-600">
+                    </div>
+                    <button @click="copyChartConfig" class="w-full bg-slate-800 text-white py-2.5 rounded-lg hover:bg-slate-700 transition font-bold shadow-md">
+                        复制参数发给 AI
+                    </button>
+                </div>
+
                 <!-- 左右行星栏 + 中间能量图 -->
                 <div class="flex flex-row justify-center items-stretch gap-2 md:gap-6 w-full mt-8 relative">
                     
-                    <!-- 【参数完美对齐的人体底图】 -->
                     <img src="https://raw.githubusercontent.com/Mr-shuchan/hd-csharp-api/refs/heads/main/download.jpg" 
                          alt="人类图脉轮底图" 
                          class="absolute transform -translate-x-1/2 -translate-y-1/2 h-auto object-contain z-0" 
@@ -193,7 +258,7 @@
                              width: 100%;
                              left: 50%;
                              top: 40%;
-                             opacity: 1; /* 不透明度 100% */
+                             opacity: 1;
                              pointer-events: none;
                              mix-blend-mode: multiply;
                          ">
@@ -208,7 +273,8 @@
                     </div>
 
                     <!-- 中间：SVG 图表容器 -->
-                    <div class="flex-grow flex justify-center items-center min-w-0 relative" style="flex-basis: 60%;">
+                    <div class="flex-grow flex justify-center items-center min-w-0 relative" style="flex-basis: 60%;"
+                         :style="{ '--channel-inner': chartConfig.inner, '--channel-outer': chartConfig.outer }">
                         <!-- 渲染出的 SVG 图表 -->
                         <div class="w-full chart-container relative z-10" v-html="result.chartImageSVG"></div>
                     </div>
@@ -247,14 +313,87 @@ Vue.createApp({
                 date: '2000-01-01', 
                 time: '12:00',
                 province: '',
-                city: ''
+                city: '',
+                timezoneOffset: 8 // 新增：默认设为 UTC+8
             },
             loading: false,
             result: null,
-            errorLog: null
+            errorLog: null,
+            showConfig: false,
+            chartConfig: {
+                inner: 0.022,
+                outer: 0.038
+            },
+            // 【核心注入】：中国省市精简地理数据库，实现丝滑级联选择
+            locationData: {
+                "北京": ["北京市"],
+                "上海": ["上海市"],
+                "天津": ["天津市"],
+                "重庆": ["重庆市"],
+                "广东": ["广州市", "深圳市", "珠海市", "汕头市", "佛山市", "东莞市", "中山市", "惠州市", "江门市", "肇庆市", "湛江市", "茂名市", "揭阳市", "清远市"],
+                "浙江": ["杭州市", "宁波市", "温州市", "嘉兴市", "湖州市", "绍兴市", "金华市", "衢州市", "舟山市", "台州市", "丽水市"],
+                "江苏": ["南京市", "无锡市", "徐州市", "常州市", "苏州市", "南通市", "连云港市", "淮安市", "盐城市", "扬州市", "镇江市", "泰州市", "宿迁市"],
+                "山东": ["济南市", "青岛市", "淄博市", "枣庄市", "东营市", "烟台市", "潍坊市", "济宁市", "泰安市", "威海市", "日照市", "临沂市", "德州市", "聊城市", "滨州市", "菏泽市"],
+                "四川": ["成都市", "自贡市", "攀枝花市", "泸州市", "德阳市", "绵阳市", "广元市", "遂宁市", "内江市", "乐山市", "南充市", "眉山市", "宜宾市", "广安市", "达州市", "雅安市", "巴中市", "资阳市"],
+                "河南": ["郑州市", "开封市", "洛阳市", "平顶山市", "安阳市", "鹤壁市", "新乡市", "焦作市", "濮阳市", "许昌市", "漯河市", "三门峡市", "南阳市", "商丘市", "信阳市", "周口市", "驻马店市"],
+                "湖北": ["郑州市", "开封市", "武汉市", "黄石市", "十堰市", "宜昌市", "襄阳市", "鄂州市", "荆门市", "孝感市", "荆州市", "黄冈市", "咸宁市", "随州市"],
+                "湖南": ["武汉市", "长沙市", "株洲市", "湘潭市", "衡阳市", "邵阳市", "岳阳市", "常德市", "张家界市", "益阳市", "郴州市", "永州市", "怀化市", "娄底市"],
+                "福建": ["福州市", "厦门市", "莆田市", "三明市", "泉州市", "漳州市", "南平市", "龙岩市", "宁德市"],
+                "安徽": ["合肥市", "芜湖市", "蚌埠市", "淮南市", "马鞍山市", "淮北市", "铜陵市", "安庆市", "黄山市", "滁州市", "阜阳市", "宿州市", "六安市", "亳州市", "池州市", "宣城市"],
+                "江西": ["福州市", "南昌市", "景德镇市", "萍乡市", "九江市", "新余市", "鹰潭市", "赣州市", "吉安市", "宜春市", "抚州市", "上饶市"],
+                "河北": ["石家庄市", "唐山市", "秦皇岛市", "邯郸市", "邢台市", "保定市", "张家口市", "承德市", "沧州市", "廊坊市", "衡水市"],
+                "陕西": ["郑州市", "西安市", "铜川市", "宝鸡市", "咸阳市", "渭南市", "延安市", "汉中市", "榆林市", "安康市", "商洛市"],
+                "辽宁": ["沈阳市", "大连市", "鞍山市", "抚顺市", "本溪市", "丹东市", "锦州市", "营口市", "阜新市", "辽阳市", "盘锦市", "铁岭市", "朝阳市", "葫芦岛市"],
+                "吉林": ["沈阳市", "长春市", "吉林市", "四平市", "辽源市", "通化市", "白山市", "松原市", "白城市"],
+                "黑龙江": ["哈尔滨市", "齐齐哈尔市", "鸡西市", "鹤岗市", "双鸭山市", "大庆市", "伊春市", "佳木斯市", "七台河市", "牡丹江市", "黑河市", "绥化市"],
+                "山西": ["太原市", "大同市", "阳泉市", "长治市", "晋城市", "朔州市", "晋中市", "运城市", "忻州市", "临汾市", "吕梁市"],
+                "云南": ["成都市", "昆明市", "曲靖市", "玉溪市", "保山市", "昭通市", "丽江市", "普洱市", "临沧市"],
+                "贵州": ["昆明市", "贵阳市", "六盘水市", "遵义市", "安顺市", "毕节市", "铜仁市"],
+                "甘肃": ["昆明市", "兰州市", "嘉峪关市", "金昌市", "白银市", "天水市", "武威市", "张掖市", "平凉市", "酒泉市", "庆阳市", "定西市", "陇南市"],
+                "海南": ["贵阳市", "海口市", "三亚市", "三沙市", "儋州市"],
+                "广西": ["广州市", "南宁市", "柳州市", "桂林市", "梧州市", "北海市", "防城港市", "钦州市", "贵港市", "玉林市", "百色市", "贺州市", "河池市", "来宾市", "崇左市"],
+                "内蒙古": ["哈尔滨市", "呼和浩特市", "齐齐哈尔市", "黑河市", "大兴安岭地区", "哈尔滨市", "包头市", "乌海市", "赤峰市", "通辽市", "鄂尔多斯市", "呼伦贝尔市", "巴彦淖尔市", "乌兰察布市"],
+                "新疆": ["哈尔滨市", "乌鲁木齐市", "克拉玛依市", "吐鲁番市", "哈密市"],
+                "宁夏": ["兰州市", "银川市", "石嘴山市", "吴忠市", "固原市", "中卫市"],
+                "青海": ["西宁市", "海东市"],
+                "西藏": ["拉萨市", "日喀则市", "昌都市", "林芝市", "山南市", "那曲市"],
+                "台湾": ["海口市", "台北市", "高雄市", "台南市", "台中市"],
+                "香港": ["香港"],
+                "澳门": ["澳门"]
+            }
         };
     },
+    computed: {
+        // 根据选中的省份，动态计算出对应的城市列表
+        availableCities() {
+            return this.form.province ? this.locationData[this.form.province] : [];
+        }
+    },
     methods: {
+        // 核心：当省份改变时，自动重置城市，并默认选中该省份的第一个城市
+        handleProvinceChange() {
+            if (this.availableCities.length > 0) {
+                this.form.city = this.availableCities[0];
+            } else {
+                this.form.city = '';
+            }
+            
+            // 【核心注入】：根据省份智能推断地理时区
+            const p = this.form.province;
+            if (['新疆', '西藏', '青海'].includes(p)) {
+                this.form.timezoneOffset = 6;
+            } else if (['四川', '重庆', '云南', '贵州', '陕西', '甘肃', '宁夏', '广西', '海南'].includes(p)) {
+                this.form.timezoneOffset = 7;
+            } else {
+                this.form.timezoneOffset = 8;
+            }
+        },
+        copyChartConfig() {
+            const txt = `通道主体宽度: ${this.chartConfig.inner}\n通道描边宽度: ${this.chartConfig.outer}`;
+            navigator.clipboard.writeText(txt).then(() => {
+                alert('✅ 参数已复制：\n\n' + txt + '\n\n请直接将它粘贴发给 AI！');
+            });
+        },
         getPlanetSymbol(planetName) {
             const symbols = {
                 "Sun": "☉",
@@ -276,17 +415,50 @@ Vue.createApp({
         copySVG() {
             const svgElement = document.querySelector('.chart-container svg');
             if (svgElement) {
-                navigator.clipboard.writeText(svgElement.outerHTML).then(() => {
-                    alert('✅ SVG 已复制！');
-                });
+                const textToCopy = svgElement.outerHTML;
+                const textArea = document.createElement("textarea");
+                textArea.value = textToCopy;
+                
+                textArea.style.top = "0";
+                textArea.style.left = "0";
+                textArea.style.position = "fixed";
+                
+                document.body.appendChild(textArea);
+                textArea.focus();
+                textArea.select();
+                
+                try {
+                    const successful = document.execCommand('copy');
+                    if (successful) {
+                        alert('✅ SVG 源码已成功复制到剪贴板！');
+                    } else {
+                        alert('❌ 复制失败，请手动打开控制台复制。');
+                    }
+                } catch (err) {
+                    console.error('复制回退方案失败', err);
+                    alert('❌ 浏览器环境拦截了复制功能，请手动复制。');
+                }
+                
+                document.body.removeChild(textArea);
             }
         },
         async generateFromAPI() {
+            // 如果用户忘记选了，强制提醒（虽然前端有 required，加个双保险）
+            if (!this.form.province || !this.form.city) {
+                alert("请先选择出生省份和城市！");
+                return;
+            }
+
             this.loading = true;
             this.result = null; 
             this.errorLog = null; 
             try {
-                const localDateTimeStr = `${this.form.date}T${this.form.time}:00+08:00`; 
+                // 【绝杀修复：动态时区转换】根据用户选择的地理时区动态格式化
+                const sign = this.form.timezoneOffset >= 0 ? '+' : '-';
+                const absOffset = Math.abs(this.form.timezoneOffset);
+                const offsetStr = sign + String(absOffset).padStart(2, '0') + ':00';
+
+                const localDateTimeStr = `${this.form.date}T${this.form.time}:00${offsetStr}`; 
                 const localDateObj = new Date(localDateTimeStr);
                 
                 const utcDate = localDateObj.getUTCFullYear() + '-' + 
@@ -318,7 +490,42 @@ Vue.createApp({
                 if (resData.success) {
                     let d = resData.data;
 
-                    // 【完全安全回滚】：彻底去除了使用 JS 操作修改 SVG 的逻辑，原汁原味呈现 C# 输出
+                    if (d.chartImageSVG) {
+                        try {
+                            const parser = new DOMParser();
+                            const htmlDoc = parser.parseFromString(d.chartImageSVG, 'text/html');
+                            const svgElement = htmlDoc.querySelector('svg');
+                            
+                            if (svgElement) {
+                                const channelLines = Array.from(svgElement.querySelectorAll('path[stroke-width="0.02"], line[stroke-width="0.02"]'));
+                                
+                                if (channelLines.length > 0) {
+                                    const outlineGroup = htmlDoc.createElementNS("http://www.w3.org/2000/svg", "g");
+                                    outlineGroup.setAttribute("class", "all-channel-outlines");
+                                    channelLines[0].parentNode.insertBefore(outlineGroup, channelLines[0]);
+                                    
+                                    channelLines.forEach(el => {
+                                        const clone = el.cloneNode(true);
+                                        let originalClass = clone.getAttribute('class') || '';
+                                        clone.setAttribute('class', (originalClass + ' channel-outline').trim());
+                                        clone.removeAttribute('stroke');
+                                        outlineGroup.appendChild(clone);
+                                        
+                                        let innerClass = el.getAttribute('class') || '';
+                                        el.setAttribute('class', (innerClass + ' channel-inner').trim());
+                                        
+                                        if (el.getAttribute('stroke') === 'lightgrey') {
+                                            el.setAttribute('stroke', '#ffffff');
+                                        }
+                                    });
+                                }
+                                
+                                d.chartImageSVG = svgElement.outerHTML;
+                            }
+                        } catch (domErr) {
+                            console.error("解析修复 SVG 失败，降级显示:", domErr);
+                        }
+                    }
 
                     const typeMap = {
                         "Manifestor": "显示者 (Manifestor)",
